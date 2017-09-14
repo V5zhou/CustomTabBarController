@@ -15,13 +15,21 @@
 static char hitTestView_bind;
 - (void)setHitTestView:(UIView *)hitTestView {
     NSString *className = [self newClassName];
+    
     if (!NSClassFromString(className)) {
         //创建新类
-        [self createNewClass:className];
+        Class originalClazz = object_getClass(self);
+        Class newClass = objc_allocateClassPair(originalClazz, className.UTF8String, 0);
+        objc_registerClassPair(newClass);
+        
         //添加hittest方法实现
         const char *types = "@:@";
-        class_addMethod([self class], @selector(hitTest:withEvent:), (IMP)hitTestWithEvent, types);
+        class_addMethod(NSClassFromString(className), @selector(hitTest:withEvent:), (IMP)hitTestWithEvent, types);
     }
+    
+    //把自己指向新类
+    object_setClass(self, NSClassFromString(className));
+    
     objc_setAssociatedObject(self, &hitTestView_bind, hitTestView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
@@ -34,15 +42,6 @@ static char hitTestView_bind;
     NSString *className = NSStringFromClass([self class]);
     className = [className stringByAppendingString:@"_expandResponseRect"];
     return className;
-}
-
-//建立新类
-- (void)createNewClass:(NSString *)className {
-    Class originalClazz = object_getClass(self);
-    Class newClass = objc_allocateClassPair(originalClazz, className.UTF8String, 0);
-    objc_registerClassPair(newClass);
-    //把自己指向新类
-    object_setClass(self, newClass);
 }
 
 UIView *hitTestWithEvent(UIView *self, SEL _cmd, CGPoint point, UIEvent *event) {
